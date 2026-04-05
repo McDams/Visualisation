@@ -1,0 +1,6 @@
+id,Code,Unité,value_domain,Description
+1,TEMP,°C,-50 to 60,Temperature in Celsius
+2,HUM,%,0 to 100,Humidity in percentage
+3,LUX,lx,0 to 10000,Light intensity in lux
+4,CO2,ppm,0 to 5000,Carbon dioxide concentration
+5,PRESS,hPa,900 to 1100,Atmospheric pressure in hectopascals

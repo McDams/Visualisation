@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global Dashboard - Sensor Visualization</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-900 text-white">
+    <header class="bg-gray-800 shadow-lg">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex justify-between items-center">
+                <h1 class="text-3xl font-bold text-blue-400">📊 Global Dashboard</h1>
+                <nav>
+                    <a href="index.html" class="mx-2 hover:text-blue-400">Home</a>
+                    <a href="dashboards/global.html" class="mx-2 hover:text-blue-400">Global</a>
+                    <a href="dashboards/sensors.html" class="mx-2 hover:text-blue-400">Sensors</a>
+                    <a href="dashboards/alerts.html" class="mx-2 hover:text-blue-400">Alerts</a>
+                    <a href="dashboards/statistics.html" class="mx-2 hover:text-blue-400">Statistics</a>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8">
+        <!-- Overview Cards -->
+        <section class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <!-- Temperature Card -->
+            <div class="bg-gray-800 rounded-lg p-6 shadow-lg">
+                <h3 class="text-lg font-semibold text-gray-300">Temperature</h3>
+                <p class="text-4xl font-bold text-orange-400 my-4" id="temp-value">--°C</p>
+                <p class="text-sm text-gray-400">Current Reading</p>
+            </div>
+
+            <!-- Humidity Card -->
+            <div class="bg-gray-800 rounded-lg p-6 shadow-lg">
+                <h3 class="text-lg font-semibold text-gray-300">Humidity</h3>
+                <p class="text-4xl font-bold text-blue-400 my-4" id="humidity-value">--%</p>
+                <p class="text-sm text-gray-400">Current Reading</p>
+            </div>
+
+            <!-- Light Card -->
+            <div class="bg-gray-800 rounded-lg p-6 shadow-lg">
+                <h3 class="text-lg font-semibold text-gray-300">Light</h3>
+                <p class="text-4xl font-bold text-yellow-400 my-4" id="light-value">-- lux</p>
+                <p class="text-sm text-gray-400">Current Reading</p>
+            </div>
+        </section>
+
+        <!-- Charts Section -->
+        <section class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            <!-- Latest Readings Chart -->
+            <div class="bg-gray-800 rounded-lg p-6 shadow-lg">
+                <h2 class="text-xl font-semibold mb-4">Latest Readings</h2>
+                <canvas id="latestChart" height="100"></canvas>
+            </div>
+
+            <!-- Alerts Summary -->
+            <div class="bg-gray-800 rounded-lg p-6 shadow-lg">
+                <h2 class="text-xl font-semibold mb-4">Active Alerts</h2>
+                <div id="alerts-summary">
+                    <p class="text-gray-400">Loading alerts...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- System Status -->
+        <section class="bg-gray-800 rounded-lg p-6 shadow-lg">
+            <h2 class="text-xl font-semibold mb-4">System Status</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="bg-gray-700 rounded p-3">
+                    <p class="text-gray-400 text-sm">API Status</p>
+                    <p id="api-status" class="text-xl font-bold text-green-400">🟢 Online</p>
+                </div>
+                <div class="bg-gray-700 rounded p-3">
+                    <p class="text-gray-400 text-sm">Active Sensors</p>
+                    <p id="sensor-count" class="text-xl font-bold text-blue-400">--</p>
+                </div>
+                <div class="bg-gray-700 rounded p-3">
+                    <p class="text-gray-400 text-sm">Total Readings</p>
+                    <p id="reading-count" class="text-xl font-bold text-purple-400">--</p>
+                </div>
+                <div class="bg-gray-700 rounded p-3">
+                    <p class="text-gray-400 text-sm">Last Update</p>
+                    <p id="last-update" class="text-xl font-bold text-gray-300">--</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const API_URL = 'http://127.0.0.1:8000/api';
+
+        async function loadDashboard() {
+            try {
+                // Load latest readings
+                const latestRes = await fetch(`${API_URL}/sensors/latest`);
+                const latest = await latestRes.json();
+
+                document.getElementById('temp-value').textContent = `${latest.temperature}°C`;
+                document.getElementById('humidity-value').textContent = `${latest.humidity}%`;
+                document.getElementById('light-value').textContent = `${latest.light} lux`;
+
+                // Load alerts summary
+                const alertsRes = await fetch(`${API_URL}/alerts`);
+                const alerts = await alertsRes.json();
+
+                const alertsSummary = document.getElementById('alerts-summary');
+                if (alerts.length === 0) {
+                    alertsSummary.innerHTML = '<p class="text-green-400 font-bold">✅ No active alerts</p>';
+                } else {
+                    alertsSummary.innerHTML = `<p class="text-red-400 font-bold">🚨 ${alerts.length} active alert(s)</p>`;
+                    alerts.slice(0, 3).forEach(alert => {
+                        alertsSummary.innerHTML += `<p class="text-sm text-gray-300 mt-2">• ${alert.message}</p>`;
+                    });
+                }
+
+                // Update system status
+                document.getElementById('api-status').textContent = '🟢 Online';
+                document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
+
+                // Create chart
+                createLatestChart(latest);
+
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+                document.getElementById('api-status').textContent = '🔴 Offline';
+            }
+        }
+
+        function createLatestChart(data) {
+            const ctx = document.getElementById('latestChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Temperature (°C)', 'Humidity (%)', 'Light (lux)'],
+                    datasets: [{
+                        label: 'Current Values',
+                        data: [data.temperature, data.humidity, data.light / 10],
+                        backgroundColor: ['#f97316', '#3b82f6', '#eab308'],
+                        borderColor: ['#ea580c', '#1d4ed8', '#ca8a04'],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#fff' }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            ticks: { color: '#fff' },
+                            grid: { color: '#374151' }
+                        },
+                        x: {
+                            ticks: { color: '#fff' },
+                            grid: { color: '#374151' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Refresh data every 30 seconds
+        loadDashboard();
+        setInterval(loadDashboard, 30000);
+    </script>
+
+    <footer class="text-center py-6 text-gray-400 mt-12 bg-gray-800">
+        <p>&copy; 2026 Sensor Visualization System. All rights reserved.</p>
+    </footer>
+</body>
+</html>
