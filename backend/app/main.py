@@ -4,6 +4,11 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 import traceback
 from contextlib import asynccontextmanager
+import os
+
+# Initialize storage layer (CSV or PostgreSQL)
+from backend.storage import init_repository, get_repository
+from backend.storage.repository_csv import CSVRepository
 
 # Import database initialization and models
 from app.database import init_db, close_db, Base, engine
@@ -13,6 +18,8 @@ from app.models.db_models import Sensor, SensorReading, Alert
 from app.routers.sensors_router import router as sensors_router
 from app.routers.history_router import router as history_router
 from app.routers.alerts_router import router as alerts_router
+from app.routers.measurements_router import router as measurements_router
+from app.routers.stats_router import router as stats_router
 
 
 @asynccontextmanager
@@ -23,8 +30,20 @@ async def lifespan(app: FastAPI):
     """
     # Startup
     print("🚀 Application starting...")
+    
+    # Initialize storage layer (CSV by default)
+    data_dir = os.getenv("CSV_DATA_DIR", "./backend/data")
+    try:
+        init_repository(source='csv', csv_data_dir=data_dir)
+        print(f"✅ Storage layer initialized (CSV from {data_dir})")
+    except Exception as e:
+        print(f"⚠️  Storage initialization warning: {e}")
+    
+    # Initialize database (for SQLAlchemy models if needed)
     await init_db()
+    
     yield
+    
     # Shutdown
     print("🛑 Application shutting down...")
     await close_db()
@@ -78,6 +97,8 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 app.include_router(sensors_router, prefix="/api", tags=["sensors"])
 app.include_router(history_router, prefix="/api", tags=["history"])
 app.include_router(alerts_router, prefix="/api", tags=["alerts"])
+app.include_router(measurements_router, prefix="/api", tags=["measurements"])
+app.include_router(stats_router, prefix="/api", tags=["statistics"])
 
 
 # Root endpoint

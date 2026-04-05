@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heatmaps - Sensor Visualization</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="../js/api.js"></script>
+</head>
+<body class="bg-gray-900 text-white">
+    <header class="bg-gray-800 shadow-lg">
+        <div class="container mx-auto px-4 py-4">
+            <h1 class="text-3xl font-bold text-red-400">🔥 Heatmap Analysis</h1>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8">
+        <!-- Heatmap Controls -->
+        <section class="mb-8">
+            <div class="bg-gray-800 rounded-lg p-6 shadow-lg">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Measurement Type:</label>
+                        <select id="heat-type" class="w-full bg-gray-700 rounded px-4 py-2 text-white">
+                            <option value="">-- Select --</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Aggregation:</label>
+                        <select id="heat-agg" class="w-full bg-gray-700 rounded px-4 py-2 text-white">
+                            <option value="hourly">Hourly</option>
+                            <option value="daily">Daily</option>
+                            <option value="6hourly">6-Hourly</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Days:</label>
+                        <input type="number" id="heat-days" value="7" min="1" max="365" class="w-full bg-gray-700 rounded px-4 py-2 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Color Scale:</label>
+                        <select id="heat-scale" class="w-full bg-gray-700 rounded px-4 py-2 text-white">
+                            <option value="viridis">Viridis</option>
+                            <option value="coolwarm">Cool-Warm</option>
+                            <option value="redblue">Red-Blue</option>
+                        </select>
+                    </div>
+                    <div class="flex items-end">
+                        <button onclick="generateHeatmap()" class="w-full bg-red-600 hover:bg-red-700 rounded px-4 py-2 font-semibold">
+                            Generate
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Heatmap Visualization -->
+        <section class="mb-8">
+            <div class="bg-gray-800 rounded-lg p-6 shadow-lg">
+                <h2 class="text-xl font-semibold mb-4">Sensor × Time Heatmap</h2>
+                <div class="relative">
+                    <div id="heatmap-container" class="overflow-x-auto">
+                        <canvas id="heatmapCanvas" width="1200" height="400"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Heatmap Table -->
+        <section class="mb-8">
+            <div class="bg-gray-800 rounded-lg p-6 shadow-lg">
+                <h2 class="text-xl font-semibold mb-4">Data Table</h2>
+                <div class="flex gaps-2 mb-4">
+                    <input type="text" id="heat-search" placeholder="Search..." class="flex-1 bg-gray-700 rounded px-4 py-2 text-white">
+                    <button onclick="toggleTableDetail()" class="bg-gray-700 hover:bg-gray-600 rounded px-4 py-2 font-semibold">
+                        Toggle Details
+                    </button>
+                </div>
+                <div class="overflow-x-auto max-h-96">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-700 sticky top-0">
+                            <tr>
+                                <th class="px-4 py-3 text-left">Time</th>
+                                <th id="heat-thead-cells"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="heat-tbody">
+                            <tr class="text-gray-400">
+                                <td class="px-4 py-3">Load data to see heatmap</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Statistics by Time Period -->
+        <section>
+            <div class="bg-gray-800 rounded-lg p-6 shadow-lg">
+                <h2 class="text-xl font-semibold mb-4">Period Statistics</h2>
+                <div id="period-stats" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <p class="text-gray-400">Load data to see statistics</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const API_URL = 'http://127.0.0.1:8000/api';
+        let heatmapData = {};
+
+        // Color gradient functions
+        const colorScales = {
+            viridis: (val, min, max) => {
+                const ratio = (val - min) / (max - min);
+                const hue = (1 - ratio) * 240; // 240 = blue, 0 = red
+                return `hsl(${hue}, 100%, 50%)`;
+            },
+            coolwarm: (val, min, max) => {
+                const ratio = (val - min) / (max - min);
+                if (ratio < 0.5) {
+                    const sat = (0.5 - ratio) * 200;
+                    return `hsl(200, 100%, ${50 + ratio * 20}%)`;
+                } else {
+                    const sat = (ratio - 0.5) * 200;
+                    return `hsl(0, 100%, ${50 - (ratio - 0.5) * 20}%)`;
+                }
+            },
+            redblue: (val, min, max) => {
+                const ratio = (val - min) / (max - min);
+                return ratio < 0.5 
+                    ? `hsl(200, 100%, ${100 - ratio * 50}%)`
+                    : `hsl(0, 100%, ${100 - (ratio - 0.5) * 50}%)`;
+            }
+        };
+
+        async function initializePage() {
+            try {
+                // Load types
+                const latest = await fetch(`${API_URL}/measurements/latest`).then(r => r.json());
+                const typeSelect = document.getElementById('heat-type');
+                
+                for (const typeCode of Object.keys(latest)) {
+                    const option = document.createElement('option');
+                    option.value = typeCode;
+                    option.textContent = typeCode;
+                    typeSelect.appendChild(option);
+                }
+            } catch (error) {
+                console.error('Error initializing:', error);
+            }
+        }
+
+        async function generateHeatmap() {
+            const typeCode = document.getElementById('heat-type').value;
+            const aggregation = document.getElementById('heat-agg').value;
+            const days = document.getElementById('heat-days').value;
+            const colorScale = document.getElementById('heat-scale').value;
+
+            if (!typeCode) {
+                alert('Please select a measurement type');
+                return;
+            }
+
+            try {
+                // Load time series data for all sensors
+                const sensors = await fetch(`${API_URL}/sensors`).then(r => r.json());
+                const sensorMap = {};
+                
+                for (const sensor of sensors) {
+                    try {
+                        const res = await fetch(
+                            `${API_URL}/measurements/timeseries?sensor_id=${sensor.id}&measurement_type=${typeCode}&days=${days}`
+                        );
+                        const data = await res.json();
+                        
+                        if (data.data_points && data.data_points.length > 0) {
+                            sensorMap[sensor.name] = data.data_points;
+                        }
+                    } catch (e) {
+                        continue;
+                    }
+                }
+
+                heatmapData = aggregateData(sensorMap, aggregation);
+                renderHeatmap(heatmapData, colorScale);
+                updateHeatmapTable(heatmapData);
+                updatePeriodStats(heatmapData);
+
+            } catch (error) {
+                console.error('Error generating heatmap:', error);
+            }
+        }
+
+        function aggregateData(sensorMap, aggregation) {
+            const buckets = {};
+
+            for (const [sensorName, dataPoints] of Object.entries(sensorMap)) {
+                dataPoints.forEach(p => {
+                    const date = new Date(p.time);
+                    let key = '';
+
+                    if (aggregation === 'hourly') {
+                        key = `${date.toLocaleDateString()} ${date.getHours()}:00`;
+                    } else if (aggregation === 'daily') {
+                        key = date.toLocaleDateString();
+                    } else if (aggregation === '6hourly') {
+                        const hour = Math.floor(date.getHours() / 6) * 6;
+                        key = `${date.toLocaleDateString()} ${hour}:00`;
+                    }
+
+                    if (!buckets[key]) buckets[key] = {};
+                    if (!buckets[key][sensorName]) buckets[key][sensorName] = [];
+                    
+                    buckets[key][sensorName].push(p.value);
+                });
+            }
+
+            // Average each bucket
+            const result = {};
+            for (const [time, sensors] of Object.entries(buckets)) {
+                result[time] = {};
+                for (const [sensor, values] of Object.entries(sensors)) {
+                    result[time][sensor] = values.reduce((a, b) => a + b, 0) / values.length;
+                }
+            }
+
+            return result;
+        }
+
+        function renderHeatmap(data, colorScale) {
+            const times = Object.keys(data).sort();
+            const sensors = [...new Set(Object.values(data).flatMap(t => Object.keys(t)))];
+
+            // Find min/max values
+            let minVal = Infinity, maxVal = -Infinity;
+            Object.values(data).forEach(timeBucket => {
+                Object.values(timeBucket).forEach(val => {
+                    minVal = Math.min(minVal, val);
+                    maxVal = Math.max(maxVal, val);
+                });
+            });
+
+            const colorFn = colorScales[colorScale];
+            const cellSize = 30;
+            const labelWidth = 200;
+
+            const canvas = document.getElementById('heatmapCanvas');
+            canvas.width = labelWidth + (times.length * cellSize);
+            canvas.height = 40 + (sensors.length * cellSize);
+
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#1f2937';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw time labels (top)
+            ctx.fillStyle = '#fff';
+            ctx.font = '12px sans-serif';
+            ctx.textAlign = 'center';
+            times.forEach((time, idx) => {
+                const x = labelWidth + (idx * cellSize);
+                ctx.save();
+                ctx.translate(x + cellSize/2, 30);
+                ctx.rotate(-Math.PI / 4);
+                ctx.fillText(time, 0, 0);
+                ctx.restore();
+            });
+
+            // Draw sensor labels (left)
+            ctx.textAlign = 'right';
+            sensors.forEach((sensor, idx) => {
+                const y = 40 + (idx * cellSize) + cellSize / 2;
+                ctx.fillText(sensor, labelWidth - 10, y);
+            });
+
+            // Draw cells
+            sensors.forEach((sensor, sIdx) => {
+                times.forEach((time, tIdx) => {
+                    const val = data[time][sensor];
+                    if (val !== undefined) {
+                        const x = labelWidth + (tIdx * cellSize);
+                        const y = 40 + (sIdx * cellSize);
+                        const color = colorFn(val, minVal, maxVal);
+                        
+                        ctx.fillStyle = color;
+                        ctx.fillRect(x, y, cellSize, cellSize);
+                        
+                        ctx.strokeStyle = '#374151';
+                        ctx.strokeRect(x, y, cellSize, cellSize);
+                    }
+                });
+            });
+
+            // Draw legend
+            const legendX = 20;
+            const legendY = canvas.height - 40;
+            
+            ctx.fillStyle = '#fff';
+            ctx.textAlign = 'left';
+            ctx.fillText(`Min: ${minVal.toFixed(2)}`, legendX, legendY);
+            ctx.fillText(`Max: ${maxVal.toFixed(2)}`, legendX + 150, legendY);
+
+            for (let i = 0; i <= 10; i++) {
+                const ratio = i / 10;
+                const col = colorFn(minVal + (maxVal - minVal) * ratio, minVal, maxVal);
+                ctx.fillStyle = col;
+                ctx.fillRect(legendX + i * 15, legendY - 20, 15, 15);
+            }
+        }
+
+        function updateHeatmapTable(data) {
+            const times = Object.keys(data).sort();
+            const sensors = [...new Set(Object.values(data).flatMap(t => Object.keys(t)))];
+
+            // Update header
+            const thead = document.getElementById('heat-thead-cells');
+            thead.innerHTML = sensors.map(s => `<th class="px-4 py-3 text-left">${s}</th>`).join('');
+
+            // Update body
+            const tbody = document.getElementById('heat-tbody');
+            tbody.innerHTML = times.map(time => `
+                <tr class="border-b border-gray-700 hover:bg-gray-700">
+                    <td class="px-4 py-3 font-medium">${time}</td>
+                    ${sensors.map(s => {
+                        const val = data[time][s];
+                        return `<td class="px-4 py-3 text-right">${val !== undefined ? val.toFixed(2) : '-'}</td>`;
+                    }).join('')}
+                </tr>
+            `).join('');
+        }
+
+        function updatePeriodStats(data) {
+            const times = Object.keys(data).sort();
+            const allValues = [];
+
+            Object.values(data).forEach(timeBucket => {
+                Object.values(timeBucket).forEach(val => allValues.push(val));
+            });
+
+            const sorted = [...allValues].sort((a, b) => a - b);
+            const mean = allValues.reduce((a, b) => a + b, 0) / allValues.length;
+            const median = sorted[Math.floor(sorted.length / 2)];
+            const min = Math.min(...allValues);
+            const max = Math.max(...allValues);
+            const stdev = Math.sqrt(allValues.reduce((sq, n) => sq + Math.pow(n - mean, 2), 0) / allValues.length);
+
+            document.getElementById('period-stats').innerHTML = `
+                <div class="bg-gradient-to-br from-blue-900 to-blue-700 rounded-lg p-4">
+                    <p class="text-gray-300 text-sm">Mean</p>
+                    <p class="text-2xl font-bold">${mean.toFixed(2)}</p>
+                </div>
+                <div class="bg-gradient-to-br from-green-900 to-green-700 rounded-lg p-4">
+                    <p class="text-gray-300 text-sm">Median</p>
+                    <p class="text-2xl font-bold">${median.toFixed(2)}</p>
+                </div>
+                <div class="bg-gradient-to-br from-purple-900 to-purple-700 rounded-lg p-4">
+                    <p class="text-gray-300 text-sm">Std Dev</p>
+                    <p class="text-2xl font-bold">${stdev.toFixed(2)}</p>
+                </div>
+                <div class="bg-gradient-to-br from-orange-900 to-orange-700 rounded-lg p-4">
+                    <p class="text-gray-300 text-sm">Range</p>
+                    <p class="text-xl font-bold">${(max - min).toFixed(2)}</p>
+                    <p class="text-xs text-gray-300">${min.toFixed(2)} - ${max.toFixed(2)}</p>
+                </div>
+            `;
+        }
+
+        function toggleTableDetail() {
+            const table = document.querySelector('.max-h-96');
+            if (table) {
+                table.classList.toggle('max-h-full');
+            }
+        }
+
+        // Initialize on load
+        initializePage();
+    </script>
+
+    <footer class="text-center py-6 text-gray-400 mt-12 bg-gray-800">
+        <p>&copy; 2026 Sensor Visualization System. All rights reserved.</p>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Measurement Types - Sensor Visualization</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="../js/api.js"></script>
+</head>
+<body class="bg-gray-900 text-white">
+    <header class="bg-gray-800 shadow-lg">
+        <div class="container mx-auto px-4 py-4">
+            <h1 class="text-3xl font-bold text-purple-400">📊 Measurement Types</h1>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8">
+        <!-- Types Overview Grid -->
+        <section class="mb-8">
+            <h2 class="text-2xl font-semibold mb-6">Available Measurement Types</h2>
+            <div id="types-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="bg-gray-800 rounded-lg p-4 animate-pulse">Loading...</div>
+            </div>
+        </section>
+
+        <!-- Type-specific Statistics -->
+        <section class="mb-8">
+            <h2 class="text-2xl font-semibold mb-6">Type Statistics</h2>
+            <div class="bg-gray-800 rounded-lg p-6 shadow-lg">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Measurement Type:</label>
+                        <select id="stat-type" class="w-full bg-gray-700 rounded px-4 py-2 text-white">
+                            <option value="">-- Select --</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Days:</label>
+                        <input type="number" id="stat-days" value="30" min="1" max="365" class="w-full bg-gray-700 rounded px-4 py-2 text-white">
+                    </div>
+                    <div class="flex items-end">
+                        <button onclick="loadTypeStats()" class="w-full bg-purple-600 hover:bg-purple-700 rounded px-4 py-2 font-semibold">
+                            Load Statistics
+                        </button>
+                    </div>
+                </div>
+                <div id="type-stats-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="text-gray-400">Select a type to view statistics</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Sensor Readings by Type -->
+        <section class="mb-8">
+            <h2 class="text-2xl font-semibold mb-6">Readings by Sensor</h2>
+            <div class="bg-gray-800 rounded-lg p-6 shadow-lg">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Measurement Type:</label>
+                        <select id="readings-type" class="w-full bg-gray-700 rounded px-4 py-2 text-white">
+                            <option value="">-- Select --</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Sort By:</label>
+                        <select id="readings-sort" class="w-full bg-gray-700 rounded px-4 py-2 text-white">
+                            <option value="latest">Latest Reading</option>
+                            <option value="average">Average Value</option>
+                            <option value="count">Count</option>
+                        </select>
+                    </div>
+                    <div class="flex items-end">
+                        <button onclick="loadReadingsByType()" class="w-full bg-purple-600 hover:bg-purple-700 rounded px-4 py-2 font-semibold">
+                            Load
+                        </button>
+                    </div>
+                </div>
+                <div id="readings-table" class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-700">
+                            <tr>
+                                <th class="px-4 py-2 text-left">Sensor</th>
+                                <th class="px-4 py-2 text-right">Latest</th>
+                                <th class="px-4 py-2 text-right">Average</th>
+                                <th class="px-4 py-2 text-right">Min</th>
+                                <th class="px-4 py-2 text-right">Max</th>
+                                <th class="px-4 py-2 text-right">Count</th>
+                            </tr>
+                        </thead>
+                        <tbody id="readings-tbody">
+                            <tr class="text-gray-400">
+                                <td class="px-4 py-2">Select a type</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Type Comparison -->
+        <section>
+            <h2 class="text-2xl font-semibold mb-6">Type Comparison</h2>
+            <div class="bg-gray-800 rounded-lg p-6 shadow-lg">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Sensor:</label>
+                        <select id="compare-sensor" class="w-full bg-gray-700 rounded px-4 py-2 text-white">
+                            <option value="">-- Select --</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Days:</label>
+                        <input type="number" id="compare-days" value="7" min="1" max="365" class="w-full bg-gray-700 rounded px-4 py-2 text-white">
+                    </div>
+                    <div class="flex items-end">
+                        <button onclick="loadComparison()" class="w-full bg-purple-600 hover:bg-purple-700 rounded px-4 py-2 font-semibold">
+                            Compare
+                        </button>
+                    </div>
+                </div>
+                <canvas id="comparisonChart" height="80"></canvas>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const API_URL = 'http://127.0.0.1:8000/api';
+
+        // Type color map
+        const typeColors = {
+            'TEMP': 'from-orange-500 to-orange-600',
+            'HUM': 'from-blue-500 to-blue-600',
+            'LUX': 'from-yellow-500 to-yellow-600',
+            'CO2': 'from-green-500 to-green-600',
+            'PRESS': 'from-indigo-500 to-indigo-600'
+        };
+
+        const typeIcons = {
+            'TEMP': '🌡️',
+            'HUM': '💧',
+            'LUX': '💡',
+            'CO2': '🌍',
+            'PRESS': '📊'
+        };
+
+        async function initializePage() {
+            try {
+                // Load measurement types
+                const res = await fetch(`${API_URL}/measurements/latest`);
+                const latestData = await res.json();
+                
+                // Build types grid from latest data
+                const typesGrid = document.getElementById('types-grid');
+                typesGrid.innerHTML = '';
+                
+                for (const [typeCode, data] of Object.entries(latestData)) {
+                    const colorGradient = typeColors[typeCode] || 'from-purple-500 to-purple-600';
+                    const icon = typeIcons[typeCode] || '📈';
+                    
+                    const card = document.createElement('div');
+                    card.className = `bg-gradient-to-br ${colorGradient} rounded-lg p-6 shadow-lg cursor-pointer hover:shadow-xl transition`;
+                    card.onclick = () => selectType(typeCode);
+                    card.innerHTML = `
+                        <div class="text-3xl mb-2">${icon}</div>
+                        <h3 class="text-xl font-semibold">${typeCode}</h3>
+                        <p class="text-white text-opacity-80 mt-1">Latest: ${data.value} ${data.unit}</p>
+                        <p class="text-white text-opacity-60 text-sm mt-2">${data.sensor}</p>
+                    `;
+                    typesGrid.appendChild(card);
+                }
+                
+                // Populate selects
+                const typeSelects = ['stat-type', 'readings-type'];
+                typeSelects.forEach(selectId => {
+                    const select = document.getElementById(selectId);
+                    for (const [typeCode] of Object.entries(latestData)) {
+                        const option = document.createElement('option');
+                        option.value = typeCode;
+                        option.textContent = typeCode;
+                        select.appendChild(option);
+                    }
+                });
+                
+                // Load sensors for comparison
+                const sensorsRes = await fetch(`${API_URL}/sensors`);
+                const sensors = await sensorsRes.json();
+                const sensorSelect = document.getElementById('compare-sensor');
+                sensors.forEach(s => {
+                    const option = document.createElement('option');
+                    option.value = s.id;
+                    option.textContent = s.name;
+                    sensorSelect.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error initializing page:', error);
+            }
+        }
+
+        function selectType(typeCode) {
+            document.getElementById('stat-type').value = typeCode;
+            document.getElementById('readings-type').value = typeCode;
+            loadTypeStats();
+            loadReadingsByType();
+        }
+
+        async function loadTypeStats() {
+            const typeCode = document.getElementById('stat-type').value;
+            const days = document.getElementById('stat-days').value;
+            
+            if (!typeCode) return;
+
+            try {
+                const params = new URLSearchParams({
+                    measurement_type: typeCode,
+                    days: days
+                });
+                
+                // Use timeseries endpoint to get data for stats calculation
+                const res = await fetch(`${API_URL}/measurements/timeseries?measurement_type=${typeCode}&days=${days}`);
+                const data = await res.json();
+                
+                if (!data.data_points || data.data_points.length === 0) {
+                    document.getElementById('type-stats-container').innerHTML = `
+                        <p class="text-gray-400">No data available for this type</p>
+                    `;
+                    return;
+                }
+                
+                // Calculate statistics
+                const values = data.data_points.map(p => p.value);
+                const min = Math.min(...values);
+                const max = Math.max(...values);
+                const avg = values.reduce((a, b) => a + b, 0) / values.length;
+                const stddev = Math.sqrt(values.reduce((sq, n) => sq + Math.pow(n - avg, 2), 0) / values.length);
+                const median = values.sort((a, b) => a - b)[Math.floor(values.length / 2)];
+                
+                // Chart
+                const ctx = document.getElementById('typeChartCanvas');
+                if (ctx) ctx.remove();
+                
+                const canvas = document.createElement('canvas');
+                canvas.id = 'typeChartCanvas';
+                
+                const container = document.getElementById('type-stats-container');
+                container.innerHTML = `
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+                        <div class="bg-gray-700 rounded p-4 text-center">
+                            <p class="text-gray-400 text-sm">Min</p>
+                            <p class="text-2xl font-bold text-blue-400">${min.toFixed(2)}</p>
+                        </div>
+                        <div class="bg-gray-700 rounded p-4 text-center">
+                            <p class="text-gray-400 text-sm">Max</p>
+                            <p class="text-2xl font-bold text-red-400">${max.toFixed(2)}</p>
+                        </div>
+                        <div class="bg-gray-700 rounded p-4 text-center">
+                            <p class="text-gray-400 text-sm">Average</p>
+                            <p class="text-2xl font-bold text-green-400">${avg.toFixed(2)}</p>
+                        </div>
+                        <div class="bg-gray-700 rounded p-4 text-center">
+                            <p class="text-gray-400 text-sm">Median</p>
+                            <p class="text-2xl font-bold text-yellow-400">${median.toFixed(2)}</p>
+                        </div>
+                        <div class="bg-gray-700 rounded p-4 text-center">
+                            <p class="text-gray-400 text-sm">StDev</p>
+                            <p class="text-2xl font-bold text-purple-400">${stddev.toFixed(2)}</p>
+                        </div>
+                    </div>
+                    <div>
+                        <canvas id="typeChartCanvas" height="80"></canvas>
+                    </div>
+                `;
+                
+                // Draw mini chart
+                const ctx2d = document.getElementById('typeChartCanvas').getContext('2d');
+                new Chart(ctx2d, {
+                    type: 'line',
+                    data: {
+                        labels: data.data_points.map((_, i) => i),
+                        datasets: [{
+                            label: typeCode,
+                            data: data.data_points.map(p => p.value),
+                            borderColor: '#8b5cf6',
+                            backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { labels: { color: '#fff' } }
+                        },
+                        scales: {
+                            y: {
+                                ticks: { color: '#fff' },
+                                grid: { color: '#374151' }
+                            },
+                            x: {
+                                ticks: { color: '#fff' },
+                                grid: { color: '#374151' }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error loading type stats:', error);
+            }
+        }
+
+        async function loadReadingsByType() {
+            const typeCode = document.getElementById('readings-type').value;
+            const sortBy = document.getElementById('readings-sort').value;
+            
+            if (!typeCode) return;
+
+            try {
+                const res = await fetch(`${API_URL}/sensors/active`);
+                const sensors = await sensors.json();
+                
+                const tbody = document.getElementById('readings-tbody');
+                tbody.innerHTML = '';
+                
+                for (const sensor of sensors) {
+                    try {
+                        const readRes = await fetch(`${API_URL}/sensors/${sensor.id}/readings?limit=100`);
+                        const readings = await readRes.json();
+                        
+                        const typeReadings = readings.filter(r => r.sensor_type === typeCode);
+                        if (typeReadings.length === 0) continue;
+                        
+                        const values = typeReadings.map(r => parseFloat(r.value));
+                        const row = document.createElement('tr');
+                        row.className = 'border-b border-gray-700 hover:bg-gray-700';
+                        row.innerHTML = `
+                            <td class="px-4 py-3">${sensor.name}</td>
+                            <td class="px-4 py-3 text-right font-semibold">${values[0]?.toFixed(2) || '-'}</td>
+                            <td class="px-4 py-3 text-right">${(values.reduce((a,b) => a+b, 0) / values.length).toFixed(2)}</td>
+                            <td class="px-4 py-3 text-right text-blue-400">${Math.min(...values).toFixed(2)}</td>
+                            <td class="px-4 py-3 text-right text-red-400">${Math.max(...values).toFixed(2)}</td>
+                            <td class="px-4 py-3 text-right text-gray-400">${values.length}</td>
+                        `;
+                        tbody.appendChild(row);
+                    } catch (e) {
+                        continue;
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading readings:', error);
+            }
+        }
+
+        async function loadComparison() {
+            const sensorId = document.getElementById('compare-sensor').value;
+            const days = document.getElementById('compare-days').value;
+            
+            if (!sensorId) return;
+
+            try {
+                const res = await fetch(`${API_URL}/sensors/${sensorId}/readings?limit=365`);
+                const readings = await res.json();
+                
+                // Group by type
+                const byType = {};
+                readings.forEach(r => {
+                    if (!byType[r.sensor_type]) byType[r.sensor_type] = [];
+                    byType[r.sensor_type].push(parseFloat(r.value));
+                });
+                
+                // Chart
+                const ctx = document.getElementById('comparisonChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: Object.keys(byType),
+                        datasets: [
+                            {
+                                label: 'Min',
+                                data: Object.values(byType).map(v => Math.min(...v)),
+                                backgroundColor: '#3b82f6'
+                            },
+                            {
+                                label: 'Avg',
+                                data: Object.values(byType).map(v => v.reduce((a,b) => a+b, 0) / v.length),
+                                backgroundColor: '#10b981'
+                            },
+                            {
+                                label: 'Max',
+                                data: Object.values(byType).map(v => Math.max(...v)),
+                                backgroundColor: '#ef4444'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { labels: { color: '#fff' } }
+                        },
+                        scales: {
+                            y: {
+                                ticks: { color: '#fff' },
+                                grid: { color: '#374151' }
+                            },
+                            x: {
+                                ticks: { color: '#fff' },
+                                grid: { color: '#374151' }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error loading comparison:', error);
+            }
+        }
+
+        // Initialize on load
+        initializePage();
+    </script>
+
+    <footer class="text-center py-6 text-gray-400 mt-12 bg-gray-800">
+        <p>&copy; 2026 Sensor Visualization System. All rights reserved.</p>
+    </footer>
+</body>
+</html>

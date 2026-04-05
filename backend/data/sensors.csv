@@ -1,0 +1,9 @@
+id,EUI64,Nom,Réservoir,activé,Métadonnées,display_order
+1,A81758FFFE111111,Sensor_Hall_Temp,Hall A,true,{"location":"entry","floor":1},1
+2,A81758FFFE222222,Sensor_Hall_Humid,Hall A,true,{"location":"center","floor":1},2
+3,A81758FFFE333333,Sensor_Room_1_Temp,Room 1,true,{"location":"corner","floor":2},3
+4,A81758FFFE444444,Sensor_Room_1_Light,Room 1,true,{"location":"ceiling","floor":2},4
+5,A81758FFFE555555,Sensor_Room_2_Temp,Room 2,true,{"location":"corner","floor":2},5
+6,A81758FFFE666666,Sensor_Room_2_Light,Room 2,true,{"location":"ceiling","floor":2},6
+7,A81758FFFE777777,Sensor_Outdoor_Temp,Outdoor,true,{"location":"external","elevation":100},7
+8,A81758FFFE888888,Sensor_Outdoor_Press,Outdoor,true,{"location":"external","elevation":100},8

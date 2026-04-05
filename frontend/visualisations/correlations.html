@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Correlations - Sensor Visualization</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="../js/api.js"></script>
+</head>
+<body class="bg-gray-900 text-white">
+    <header class="bg-gray-800 shadow-lg">
+        <div class="container mx-auto px-4 py-4">
+            <h1 class="text-3xl font-bold text-pink-400">🔗 Correlation Analysis</h1>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8">
+        <!-- Correlation Controls -->
+        <section class="mb-8">
+            <div class="bg-gray-800 rounded-lg p-6 shadow-lg">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Measurement Type:</label>
+                        <select id="corr-type" class="w-full bg-gray-700 rounded px-4 py-2 text-white">
+                            <option value="">-- Select --</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Sensor 1:</label>
+                        <select id="corr-sensor1" class="w-full bg-gray-700 rounded px-4 py-2 text-white">
+                            <option value="">-- Select --</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Sensor 2:</label>
+                        <select id="corr-sensor2" class="w-full bg-gray-700 rounded px-4 py-2 text-white">
+                            <option value="">-- Select --</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Days:</label>
+                        <input type="number" id="corr-days" value="7" min="1" max="365" class="w-full bg-gray-700 rounded px-4 py-2 text-white">
+                    </div>
+                    <div class="flex items-end">
+                        <button onclick="calculateCorrelation()" class="w-full bg-pink-600 hover:bg-pink-700 rounded px-4 py-2 font-semibold">
+                            Calculate
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Correlation Grid (all sensor pairs) -->
+        <section class="mb-8">
+            <div class="bg-gray-800 rounded-lg p-6 shadow-lg">
+                <h2 class="text-xl font-semibold mb-4">All Sensor Correlations (Heatmap)</h2>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div>
+                        <p class="text-sm text-gray-400 mb-4">Correlation Matrix</p>
+                        <div id="correlation-matrix" class="bg-gray-700 rounded p-4 overflow-x-auto">
+                            <canvas id="correlationMatrix" style="max-height: 400px;"></canvas>
+                        </div>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-400 mb-4">Interpretation Guide</p>
+                        <div class="bg-gray-700 rounded p-4 space-y-2 text-sm">
+                            <div class="flex items-center gap-2">
+                                <div class="w-6 h-6 bg-red-600 rounded"></div>
+                                <span>Strong Positive (+1.0 to +0.7)</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <div class="w-6 h-6 bg-orange-500 rounded"></div>
+                                <span>Moderate Positive (+0.7 to +0.3)</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <div class="w-6 h-6 bg-yellow-500 rounded"></div>
+                                <span>Weak/None (-0.3 to +0.3)</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <div class="w-6 h-6 bg-blue-400 rounded"></div>
+                                <span>Moderate Negative (-0.7 to -0.3)</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <div class="w-6 h-6 bg-blue-600 rounded"></div>
+                                <span>Strong Negative (-1.0 to -0.7)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Pairwise Correlation Details -->
+        <section class="mb-8">
+            <div class="bg-gray-800 rounded-lg p-6 shadow-lg">
+                <h2 class="text-xl font-semibold mb-4">Pair Correlation Details</h2>
+                <div id="correlation-details" class="text-gray-400">
+                    Select two sensors and click Calculate
+                </div>
+            </div>
+        </section>
+
+        <!-- Scatter Plot -->
+        <section class="mb-8">
+            <div class="bg-gray-800 rounded-lg p-6 shadow-lg">
+                <h2 class="text-xl font-semibold mb-4">Scatter Plot (Sensor Comparison)</h2>
+                <div class="relative" style="height: 400px;">
+                    <canvas id="scatterChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Correlation Table -->
+        <section>
+            <div class="bg-gray-800 rounded-lg p-6 shadow-lg">
+                <h2 class="text-xl font-semibold mb-4">Correlation Rankings</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-700">
+                            <tr>
+                                <th class="px-4 py-3 text-left">Sensor 1</th>
+                                <th class="px-4 py-3 text-left">Sensor 2</th>
+                                <th class="px-4 py-3 text-right">Correlation</th>
+                                <th class="px-4 py-3 text-left">Type</th>
+                                <th class="px-4 py-3 text-left">Strength</th>
+                            </tr>
+                        </thead>
+                        <tbody id="correlation-table">
+                            <tr class="text-gray-400">
+                                <td class="px-4 py-3">Load data to see correlations</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const API_URL = 'http://127.0.0.1:8000/api';
+        let scatterChart = null;
+        let sensors = [];
+
+        async function initializePage() {
+            try {
+                // Load types
+                const latest = await fetch(`${API_URL}/measurements/latest`).then(r => r.json());
+                const typeSelect = document.getElementById('corr-type');
+                
+                for (const typeCode of Object.keys(latest)) {
+                    const option = document.createElement('option');
+                    option.value = typeCode;
+                    option.textContent = typeCode;
+                    typeSelect.appendChild(option);
+                }
+
+                // Load sensors
+                sensors = await fetch(`${API_URL}/sensors`).then(r => r.json());
+                const selects = ['corr-sensor1', 'corr-sensor2'];
+                
+                selects.forEach(selectId => {
+                    const select = document.getElementById(selectId);
+                    sensors.forEach(s => {
+                        const option = document.createElement('option');
+                        option.value = s.id;
+                        option.textContent = s.name;
+                        select.appendChild(option);
+                    });
+                });
+            } catch (error) {
+                console.error('Error initializing:', error);
+            }
+        }
+
+        async function calculateCorrelation() {
+            const typeId = document.getElementById('corr-type').value;
+            const sensor1Id = document.getElementById('corr-sensor1').value;
+            const sensor2Id = document.getElementById('corr-sensor2').value;
+            const days = document.getElementById('corr-days').value;
+
+            if (!typeId || !sensor1Id || !sensor2Id) {
+                alert('Please select type and both sensors');
+                return;
+            }
+
+            if (sensor1Id === sensor2Id) {
+                alert('Please select different sensors');
+                return;
+            }
+
+            try {
+                const res = await fetch(
+                    `${API_URL}/statistics/correlation?measurement_type_id=${typeId}&sensor1_id=${sensor1Id}&sensor2_id=${sensor2Id}&days=${days}`
+                );
+                const data = await res.json();
+
+                displayCorrelationDetails(data);
+                await loadScatterData(sensor1Id, sensor2Id, typeId, days);
+                await loadAllCorrelations(typeId, days);
+            } catch (error) {
+                console.error('Error calculating correlation:', error);
+            }
+        }
+
+        function displayCorrelationDetails(data) {
+            const container = document.getElementById('correlation-details');
+            const corr = data.correlation;
+            
+            let type = '';
+            let strength = '';
+            let color = '';
+            
+            if (corr > 0.7) {
+                type = '✅ Strong Positive';
+                strength = 'Very Strong';
+                color = 'text-red-400';
+            } else if (corr > 0.3) {
+                type = '→ Moderate Positive';
+                strength = 'Moderate';
+                color = 'text-orange-400';
+            } else if (corr > -0.3) {
+                type = '◐ No Significant';
+                strength = 'Weak/None';
+                color = 'text-yellow-400';
+            } else if (corr > -0.7) {
+                type = '← Moderate Negative';
+                strength = 'Moderate';
+                color = 'text-blue-300';
+            } else {
+                type = '❌ Strong Negative';
+                strength = 'Very Strong';
+                color = 'text-blue-600';
+            }
+
+            const sensor1 = sensors.find(s => s.id == document.getElementById('corr-sensor1').value)?.name || 'Sensor 1';
+            const sensor2 = sensors.find(s => s.id == document.getElementById('corr-sensor2').value)?.name || 'Sensor 2';
+
+            container.innerHTML = `
+                <div class="bg-gray-700 rounded-lg p-6">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div>
+                            <p class="text-gray-400 text-sm">Sensors</p>
+                            <p class="text-lg font-semibold">${sensor1}</p>
+                            <p class="text-gray-500">↔️</p>
+                            <p class="text-lg font-semibold">${sensor2}</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-400 text-sm">Correlation Coefficient</p>
+                            <p class="text-4xl font-bold ${color}">${corr.toFixed(4)}</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-400 text-sm">Type</p>
+                            <p class="text-lg font-semibold">${type}</p>
+                            <p class="text-gray-400 text-sm mt-2">Strength: ${strength}</p>
+                            <p class="text-gray-400 text-sm mt-2">Points: ${data.data_points_count}</p>
+                        </div>
+                    </div>
+                    <div class="mt-4 p-3 bg-gray-800 rounded text-sm text-gray-300">
+                        <p><strong>Interpretation:</strong> 
+                        ${corr > 0.7 ? 'These sensors move together very closely. When one increases, the other tends to increase proportionally.' :
+                          corr > 0.3 ? 'These sensors show a moderate positive relationship. They tend to increase together but with some variation.' :
+                          corr > -0.3 ? 'These sensors show little to no linear relationship.' :
+                          corr > -0.7 ? 'These sensors show a moderate negative relationship. When one increases, the other tends to decrease.' :
+                          'These sensors move in opposite directions very closely.'}
+                        </p>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function loadScatterData(sensor1Id, sensor2Id, typeId, days) {
+            try {
+                // Get time series for both sensors
+                const res1 = await fetch(
+                    `${API_URL}/measurements/timeseries?sensor_id=${sensor1Id}&measurement_type=${typeId}&days=${days}`
+                );
+                const res2 = await fetch(
+                    `${API_URL}/measurements/timeseries?sensor_id=${sensor2Id}&measurement_type=${typeId}&days=${days}`
+                );
+                
+                const data1 = await res1.json();
+                const data2 = await res2.json();
+
+                // Match points by time
+                const map1 = new Map(data1.data_points.map(p => [p.time, p.value]));
+                const map2 = new Map(data2.data_points.map(p => [p.time, p.value]));
+
+                const points = [];
+                for (const [time, val1] of map1) {
+                    if (map2.has(time)) {
+                        points.push({
+                            x: val1,
+                            y: map2.get(time)
+                        });
+                    }
+                }
+
+                // Create scatter chart
+                if (scatterChart) scatterChart.destroy();
+
+                const ctx = document.getElementById('scatterChart').getContext('2d');
+                scatterChart = new Chart(ctx, {
+                    type: 'scatter',
+                    data: {
+                        datasets: [{
+                            label: 'Sensor Readings',
+                            data: points,
+                            backgroundColor: '#e879f9',
+                            borderColor: '#d946ef',
+                            pointRadius: 5,
+                            pointHoverRadius: 7
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { labels: { color: '#fff' } }
+                        },
+                        scales: {
+                            x: {
+                                type: 'linear',
+                                title: {
+                                    display: true,
+                                    text: data1.data_points[0]?.sensor_name || 'Sensor 1',
+                                    color: '#fff'
+                                },
+                                ticks: { color: '#fff' },
+                                grid: { color: '#374151' }
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: data2.data_points[0]?.sensor_name || 'Sensor 2',
+                                    color: '#fff'
+                                },
+                                ticks: { color: '#fff' },
+                                grid: { color: '#374151' }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error loading scatter data:', error);
+            }
+        }
+
+        async function loadAllCorrelations(typeId, days) {
+            try {
+                const tbody = document.getElementById('correlation-table');
+                tbody.innerHTML = '';
+
+                const correlations = [];
+
+                // Calculate correlations for all sensor pairs
+                for (let i = 0; i < sensors.length; i++) {
+                    for (let j = i + 1; j < sensors.length; j++) {
+                        try {
+                            const res = await fetch(
+                                `${API_URL}/statistics/correlation?measurement_type_id=${typeId}&sensor1_id=${sensors[i].id}&sensor2_id=${sensors[j].id}&days=${days}`
+                            );
+                            const data = await res.json();
+                            correlations.push({
+                                sensor1: sensors[i].name,
+                                sensor2: sensors[j].name,
+                                correlation: data.correlation
+                            });
+                        } catch (e) {
+                            // Skip if error
+                        }
+                    }
+                }
+
+                // Sort by absolute correlation
+                correlations.sort((a, b) => Math.abs(b.correlation) - Math.abs(a.correlation));
+
+                // Display
+                correlations.slice(0, 10).forEach(c => {
+                    const corr = c.correlation;
+                    let strength = '';
+                    let strengthColor = '';
+                    
+                    if (corr > 0.7) {
+                        strength = 'Very Strong +';
+                        strengthColor = 'text-red-400';
+                    } else if (corr > 0.3) {
+                        strength = 'Moderate +';
+                        strengthColor = 'text-orange-400';
+                    } else if (corr > -0.3) {
+                        strength = 'None';
+                        strengthColor = 'text-yellow-400';
+                    } else if (corr > -0.7) {
+                        strength = 'Moderate -';
+                        strengthColor = 'text-blue-300';
+                    } else {
+                        strength = 'Very Strong -';
+                        strengthColor = 'text-blue-600';
+                    }
+
+                    const row = document.createElement('tr');
+                    row.className = 'border-b border-gray-700 hover:bg-gray-700 cursor-pointer';
+                    row.innerHTML = `
+                        <td class="px-4 py-3">${c.sensor1}</td>
+                        <td class="px-4 py-3">${c.sensor2}</td>
+                        <td class="px-4 py-3 text-right font-bold ${strengthColor}">${corr.toFixed(4)}</td>
+                        <td class="px-4 py-3">${corr > 0 ? '📈 Positive' : '📉 Negative'}</td>
+                        <td class="px-4 py-3"><span class="${strengthColor}">${strength}</span></td>
+                    `;
+                    row.onclick = () => {
+                        const s1Id = sensors.find(s => s.name === c.sensor1)?.id;
+                        const s2Id = sensors.find(s => s.name === c.sensor2)?.id;
+                        if (s1Id && s2Id) {
+                            document.getElementById('corr-sensor1').value = s1Id;
+                            document.getElementById('corr-sensor2').value = s2Id;
+                            calculateCorrelation();
+                        }
+                    };
+                    tbody.appendChild(row);
+                });
+            } catch (error) {
+                console.error('Error loading all correlations:', error);
+            }
+        }
+
+        // Initialize on load
+        initializePage();
+    </script>
+
+    <footer class="text-center py-6 text-gray-400 mt-12 bg-gray-800">
+        <p>&copy; 2026 Sensor Visualization System. All rights reserved.</p>
+    </footer>
+</body>
+</html>

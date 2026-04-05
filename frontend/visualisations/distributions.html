@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Distributions - Sensor Visualization</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="../js/api.js"></script>
+</head>
+<body class="bg-gray-900 text-white">
+    <header class="bg-gray-800 shadow-lg">
+        <div class="container mx-auto px-4 py-4">
+            <h1 class="text-3xl font-bold text-lime-400">📊 Distribution Analysis</h1>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8">
+        <!-- Distribution Controls -->
+        <section class="mb-8">
+            <div class="bg-gray-800 rounded-lg p-6 shadow-lg">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Measurement Type:</label>
+                        <select id="dist-type" class="w-full bg-gray-700 rounded px-4 py-2 text-white">
+                            <option value="">-- Select --</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Sensor(s):</label>
+                        <select id="dist-sensors" multiple class="w-full bg-gray-700 rounded px-4 py-2 text-white" size="3">
+                            <option value="">-- Select --</option>
+                        </select>
+                        <p class="text-xs text-gray-400 mt-1">Ctrl+click for multiple</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Days:</label>
+                        <input type="number" id="dist-days" value="7" min="1" max="365" class="w-full bg-gray-700 rounded px-4 py-2 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Bins:</label>
+                        <input type="number" id="dist-bins" value="15" min="5" max="50" class="w-full bg-gray-700 rounded px-4 py-2 text-white">
+                    </div>
+                    <div class="flex items-end">
+                        <button onclick="loadDistribution()" class="w-full bg-lime-600 hover:bg-lime-700 rounded px-4 py-2 font-semibold">
+                            Load
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Histogram -->
+        <section class="mb-8">
+            <div class="bg-gray-800 rounded-lg p-6 shadow-lg">
+                <h2 class="text-xl font-semibold mb-4">Histogram</h2>
+                <div class="relative" style="height: 400px;">
+                    <canvas id="histogramChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Statistical Summary -->
+        <section class="mb-8">
+            <div class="bg-gray-800 rounded-lg p-6 shadow-lg">
+                <h2 class="text-xl font-semibold mb-6">Statistical Summary</h2>
+                <div id="stats-summary" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="text-gray-400">Select data to calculate statistics</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Box Plot Equivalent -->
+        <section class="mb-8">
+            <div class="bg-gray-800 rounded-lg p-6 shadow-lg">
+                <h2 class="text-xl font-semibold mb-4">Distribution Range</h2>
+                <div id="range-display" class="space-y-4">
+                    <div class="text-gray-400">Load data to see range visualization</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Comparison of Multiple Distributions -->
+        <section>
+            <div class="bg-gray-800 rounded-lg p-6 shadow-lg">
+                <h2 class="text-xl font-semibold mb-4">Multi-Sensor Comparison</h2>
+                <div class="relative" style="height: 350px;">
+                    <canvas id="comparisonChart"></canvas>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const API_URL = 'http://127.0.0.1:8000/api';
+        let histogramChart = null;
+        let comparisonChart = null;
+        let distributionData = {};
+
+        async function initializePage() {
+            try {
+                // Load types
+                const latest = await fetch(`${API_URL}/measurements/latest`).then(r => r.json());
+                const typeSelect = document.getElementById('dist-type');
+                
+                for (const typeCode of Object.keys(latest)) {
+                    const option = document.createElement('option');
+                    option.value = typeCode;
+                    option.textContent = typeCode;
+                    typeSelect.appendChild(option);
+                }
+
+                typeSelect.addEventListener('change', () => {
+                    document.getElementById('dist-sensors').value = '';
+                    loadSensorsForType();
+                });
+
+                // Load sensors
+                const sensors = await fetch(`${API_URL}/sensors`).then(r => r.json());
+                const sensorSelect = document.getElementById('dist-sensors');
+                
+                sensors.forEach(s => {
+                    const option = document.createElement('option');
+                    option.value = s.id;
+                    option.textContent = s.name;
+                    sensorSelect.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error initializing:', error);
+            }
+        }
+
+        async function loadSensorsForType() {
+            // This could filter sensors by type if needed
+        }
+
+        async function loadDistribution() {
+            const typeCode = document.getElementById('dist-type').value;
+            const sensorIds = Array.from(document.getElementById('dist-sensors').selectedOptions).map(o => o.value);
+            const days = document.getElementById('dist-days').value;
+            const bins = document.getElementById('dist-bins').value;
+
+            if (!typeCode) {
+                alert('Please select a measurement type');
+                return;
+            }
+
+            try {
+                // If no sensors selected, load for all
+                if (sensorIds.length === 0) {
+                    const res = await fetch(
+                        `${API_URL}/statistics/distribution?measurement_type_id=${typeCode}&days=${days}&bins=${bins}`
+                    );
+                    const data = await res.json();
+                    displaySingleDistribution(data);
+                } else {
+                    // Load for each selected sensor
+                    await loadMultipleSensorDistributions(typeCode, sensorIds, days, bins);
+                }
+            } catch (error) {
+                console.error('Error loading distribution:', error);
+            }
+        }
+
+        function displaySingleDistribution(data) {
+            distributionData = data;
+            
+            // Update statistics
+            updateStatisticsSummary(data);
+            updateRangeDisplay(data);
+
+            // Histogram
+            if (histogramChart) histogramChart.destroy();
+            
+            const ctx = document.getElementById('histogramChart').getContext('2d');
+            histogramChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.labels || data.bins.map((_, i) => i),
+                    datasets: [{
+                        label: `${data.title} Distribution`,
+                        data: data.bins,
+                        backgroundColor: [
+                            '#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444',
+                            '#8b5cf6', '#ec4899', '#f97316', '#14b8a6', '#6366f1'
+                        ],
+                        borderColor: '#1f2937',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: '#fff' } },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `Count: ${context.parsed.y}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            ticks: { color: '#fff' },
+                            grid: { color: '#374151' },
+                            title: {
+                                display: true,
+                                text: 'Frequency',
+                                color: '#fff'
+                            }
+                        },
+                        x: {
+                            ticks: { color: '#fff' },
+                            grid: { color: '#374151' },
+                            title: {
+                                display: true,
+                                text: `${data.title} (${data.unit})`,
+                                color: '#fff'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        async function loadMultipleSensorDistributions(typeCode, sensorIds, days, bins) {
+            const colors = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
+            const datasets = [];
+            let maxBins = [];
+
+            for (let i = 0; i < sensorIds.length; i++) {
+                const res = await fetch(
+                    `${API_URL}/statistics/distribution?measurement_type_id=${typeCode}&sensor_id=${sensorIds[i]}&days=${days}&bins=${bins}`
+                );
+                const data = await res.json();
+                
+                datasets.push({
+                    label: data.title,
+                    data: data.bins,
+                    backgroundColor: colors[i % colors.length] + '80',
+                    borderColor: colors[i % colors.length],
+                    borderWidth: 2
+                });
+                
+                if (data.bins.length > maxBins.length) {
+                    maxBins = data.labels || data.bins.map((_, idx) => idx);
+                }
+            }
+
+            // Comparison chart
+            if (comparisonChart) comparisonChart.destroy();
+            
+            const ctx = document.getElementById('comparisonChart').getContext('2d');
+            comparisonChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: maxBins,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#fff' } }
+                    },
+                    scales: {
+                        y: {
+                            ticks: { color: '#fff' },
+                            grid: { color: '#374151' }
+                        },
+                        x: {
+                            ticks: { color: '#fff' },
+                            grid: { color: '#374151' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateStatisticsSummary(data) {
+            const container = document.getElementById('stats-summary');
+            
+            // Calculate basic stats from bins
+            const bins = data.bins || [];
+            const values = [];
+            
+            // Reconstruct approximate values from bins
+            if (data.labels && data.labels.length > 0) {
+                bins.forEach((count, idx) => {
+                    const label = data.labels[idx];
+                    const val = parseFloat(label);
+                    if (!isNaN(val)) {
+                        for (let i = 0; i < count; i++) {
+                            values.push(val);
+                        }
+                    }
+                });
+            }
+
+            if (values.length === 0) {
+                container.innerHTML = '<div class="text-gray-400">Unable to calculate statistics</div>';
+                return;
+            }
+
+            const sorted = [...values].sort((a, b) => a - b);
+            const mean = values.reduce((a, b) => a + b, 0) / values.length;
+            const median = sorted[Math.floor(sorted.length / 2)];
+            const variance = values.reduce((sq, n) => sq + Math.pow(n - mean, 2), 0) / values.length;
+            const stddev = Math.sqrt(variance);
+            const q1 = sorted[Math.floor(sorted.length * 0.25)];
+            const q3 = sorted[Math.floor(sorted.length * 0.75)];
+
+            container.innerHTML = `
+                <div class="bg-gradient-to-br from-blue-900 to-blue-700 rounded-lg p-4">
+                    <p class="text-gray-300 text-sm">Mean</p>
+                    <p class="text-2xl font-bold">${mean.toFixed(2)}</p>
+                </div>
+                <div class="bg-gradient-to-br from-green-900 to-green-700 rounded-lg p-4">
+                    <p class="text-gray-300 text-sm">Median</p>
+                    <p class="text-2xl font-bold">${median.toFixed(2)}</p>
+                </div>
+                <div class="bg-gradient-to-br from-purple-900 to-purple-700 rounded-lg p-4">
+                    <p class="text-gray-300 text-sm">Std Dev</p>
+                    <p class="text-2xl font-bold">${stddev.toFixed(2)}</p>
+                </div>
+                <div class="bg-gradient-to-br from-orange-900 to-orange-700 rounded-lg p-4">
+                    <p class="text-gray-300 text-sm">IQR</p>
+                    <p class="text-2xl font-bold">${(q3 - q1).toFixed(2)}</p>
+                </div>
+                <div class="bg-gradient-to-br from-red-900 to-red-700 rounded-lg p-4">
+                    <p class="text-gray-300 text-sm">Min</p>
+                    <p class="text-2xl font-bold">${Math.min(...values).toFixed(2)}</p>
+                </div>
+                <div class="bg-gradient-to-br from-pink-900 to-pink-700 rounded-lg p-4">
+                    <p class="text-gray-300 text-sm">Max</p>
+                    <p class="text-2xl font-bold">${Math.max(...values).toFixed(2)}</p>
+                </div>
+                <div class="bg-gradient-to-br from-yellow-900 to-yellow-700 rounded-lg p-4">
+                    <p class="text-gray-300 text-sm">Q1</p>
+                    <p class="text-2xl font-bold">${q1.toFixed(2)}</p>
+                </div>
+                <div class="bg-gradient-to-br from-cyan-900 to-cyan-700 rounded-lg p-4">
+                    <p class="text-gray-300 text-sm">Q3</p>
+                    <p class="text-2xl font-bold">${q3.toFixed(2)}</p>
+                </div>
+            `;
+        }
+
+        function updateRangeDisplay(data) {
+            const container = document.getElementById('range-display');
+            
+            if (!data.bins || data.bins.length === 0) {
+                container.innerHTML = '<div class="text-gray-400">No data</div>';
+                return;
+            }
+
+            // Create interquartile range visualization
+            const total = data.bins.reduce((a, b) => a + b, 0);
+            const q1Idx = Math.floor(data.bins.length * 0.25);
+            const medianIdx = Math.floor(data.bins.length * 0.5);
+            const q3Idx = Math.floor(data.bins.length * 0.75);
+
+            container.innerHTML = `
+                <div class="bg-gray-700 rounded-lg p-4">
+                    <p class="text-sm text-gray-400 mb-2">Distribution Range (Whisker Box)</p>
+                    <div class="relative h-12 bg-gray-600 rounded flex items-center overflow-hidden">
+                        <div class="absolute h-full bg-gray-500" style="left: 0; width: ${(q1Idx / data.bins.length * 100)}%"></div>
+                        <div class="absolute h-full bg-blue-600" style="left: ${(q1Idx / data.bins.length * 100)}%; width: ${((q3Idx - q1Idx) / data.bins.length * 100)}%"></div>
+                        <div class="absolute h-full bg-blue-400" style="left: ${(medianIdx / data.bins.length * 100)}%; width: 2px"></div>
+                        <div class="absolute h-full bg-gray-500" style="right: 0; width: ${((data.bins.length - q3Idx) / data.bins.length * 100)}%"></div>
+                    </div>
+                    <div class="flex justify-between text-xs text-gray-400 mt-2">
+                        <span>Min (0%)</span>
+                        <span>Q1 (25%)</span>
+                        <span>Median (50%)</span>
+                        <span>Q3 (75%)</span>
+                        <span>Max (100%)</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Initialize on load
+        initializePage();
+    </script>
+
+    <footer class="text-center py-6 text-gray-400 mt-12 bg-gray-800">
+        <p>&copy; 2026 Sensor Visualization System. All rights reserved.</p>
+    </footer>
+</body>
+</html>

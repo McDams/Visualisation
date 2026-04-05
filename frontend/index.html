@@ -1,39 +1,278 @@
 <!DOCTYPE html>
-<html lang="fr">
-
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Accueil — Visualisation Capteurs</title>
+    <title>Sensor Visualization System</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+        }
+    </style>
 </head>
-
-<body class="bg-gray-100 text-gray-900">
-
-    <!-- HEADER -->
-    <header class="bg-white shadow p-4 flex justify-between items-center">
-        <h1 class="text-xl font-bold">Visualisation Capteurs</h1>
-
-        <nav class="space-x-4">
-            <a href="dashboard.html" class="text-blue-600 hover:underline">Dashboard</a>
-            <a href="history.html" class="text-blue-600 hover:underline">Historique</a>
-            <a href="alerts.html" class="text-blue-600 hover:underline">Alertes</a>
-        </nav>
+<body class="bg-gray-900 text-white min-h-screen">
+    <header class="bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg">
+        <div class="container mx-auto px-4 py-6">
+            <h1 class="text-4xl font-bold">🔬 Sensor Visualization Hub</h1>
+            <p class="text-blue-100 mt-2">Real-time monitoring and advanced analytics for sensor data</p>
+        </div>
     </header>
 
-    <!-- MAIN -->
-    <main class="p-6">
-        <section class="bg-white p-6 rounded shadow max-w-xl mx-auto text-center">
-            <h2 class="text-2xl font-semibold mb-4">Bienvenue</h2>
-            <p class="text-gray-600">Choisissez une section dans le menu pour commencer.</p>
+    <main class="container mx-auto px-4 py-12">
+        <!-- Quick Status -->
+        <section class="mb-12">
+            <h2 class="text-2xl font-semibold mb-6">System Status</h2>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="bg-gradient-to-br from-green-600 to-green-700 rounded-lg p-6 text-center">
+                    <p class="text-4xl font-bold">API</p>
+                    <p class="text-green-100 mt-2" id="api-status">Checking...</p>
+                </div>
+                <div class="bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg p-6 text-center">
+                    <p class="text-4xl font-bold" id="sensor-count">--</p>
+                    <p class="text-blue-100 mt-2">Active Sensors</p>
+                </div>
+                <div class="bg-gradient-to-br from-purple-600 to-purple-700 rounded-lg p-6 text-center">
+                    <p class="text-4xl font-bold" id="type-count">--</p>
+                    <p class="text-purple-100 mt-2">Measurement Types</p>
+                </div>
+                <div class="bg-gradient-to-br from-pink-600 to-pink-700 rounded-lg p-6 text-center">
+                    <p class="text-4xl font-bold" id="alert-count">--</p>
+                    <p class="text-pink-100 mt-2">Active Alerts</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Dashboards Section -->
+        <section class="mb-12">
+            <h2 class="text-2xl font-semibold mb-6">📊 Dashboards</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Global Dashboard -->
+                <a href="dashboards/global.html" class="group">
+                    <div class="bg-gradient-to-br from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 rounded-lg p-8 h-32 flex flex-col justify-between transition transform hover:scale-105 shadow-lg">
+                        <div>
+                            <h3 class="text-2xl font-bold mb-2">🌍 Global Overview</h3>
+                            <p class="text-orange-100 text-sm">System-wide metrics and alerts</p>
+                        </div>
+                        <p class="text-white text-xs opacity-75">Latest readings from all sensors</p>
+                    </div>
+                </a>
+
+                <!-- Sensors Dashboard -->
+                <a href="dashboards/sensors.html" class="group">
+                    <div class="bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-lg p-8 h-32 flex flex-col justify-between transition transform hover:scale-105 shadow-lg">
+                        <div>
+                            <h3 class="text-2xl font-bold mb-2">📡 Sensor Details</h3>
+                            <p class="text-blue-100 text-sm">Individual sensor analytics</p>
+                        </div>
+                        <p class="text-white text-xs opacity-75">Select sensors to view trends</p>
+                    </div>
+                </a>
+
+                <!-- Statistics Dashboard -->
+                <a href="dashboards/statistics.html" class="group">
+                    <div class="bg-gradient-to-br from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 rounded-lg p-8 h-32 flex flex-col justify-between transition transform hover:scale-105 shadow-lg">
+                        <div>
+                            <h3 class="text-2xl font-bold mb-2">📈 Statistics</h3>
+                            <p class="text-cyan-100 text-sm">Distribution & correlation analysis</p>
+                        </div>
+                        <p class="text-white text-xs opacity-75">Advanced statistical features</p>
+                    </div>
+                </a>
+
+                <!-- Measurement Types -->
+                <a href="dashboards/types.html" class="group">
+                    <div class="bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 rounded-lg p-8 h-32 flex flex-col justify-between transition transform hover:scale-105 shadow-lg">
+                        <div>
+                            <h3 class="text-2xl font-bold mb-2">📊 Types</h3>
+                            <p class="text-purple-100 text-sm">Type-specific analysis</p>
+                        </div>
+                        <p class="text-white text-xs opacity-75">Deep dive into each measurement type</p>
+                    </div>
+                </a>
+            </div>
+        </section>
+
+        <!-- Visualizations Section -->
+        <section class="mb-12">
+            <h2 class="text-2xl font-semibold mb-6">📉 Visualizations</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Time Series -->
+                <a href="visualisations/timeseries.html" class="group">
+                    <div class="bg-gray-800 hover:bg-gray-700 rounded-lg p-6 h-40 flex flex-col justify-between transition transform hover:scale-105 shadow-lg border border-cyan-500">
+                        <div>
+                            <h3 class="text-xl font-bold mb-2">📈 Time Series</h3>
+                            <p class="text-gray-300 text-sm">Multi-sensor time series with date range filters</p>
+                        </div>
+                        <p class="text-gray-500 text-xs">Line / Area charts</p>
+                    </div>
+                </a>
+
+                <!-- Distributions -->
+                <a href="visualisations/distributions.html" class="group">
+                    <div class="bg-gray-800 hover:bg-gray-700 rounded-lg p-6 h-40 flex flex-col justify-between transition transform hover:scale-105 shadow-lg border border-lime-500">
+                        <div>
+                            <h3 class="text-xl font-bold mb-2">📊 Distributions</h3>
+                            <p class="text-gray-300 text-sm">Histograms and statistical distributions</p>
+                        </div>
+                        <p class="text-gray-500 text-xs">Box plots, quartiles</p>
+                    </div>
+                </a>
+
+                <!-- Heatmaps -->
+                <a href="visualisations/heatmaps.html" class="group">
+                    <div class="bg-gray-800 hover:bg-gray-700 rounded-lg p-6 h-40 flex flex-col justify-between transition transform hover:scale-105 shadow-lg border border-red-500">
+                        <div>
+                            <h3 class="text-xl font-bold mb-2">🔥 Heatmaps</h3>
+                            <p class="text-gray-300 text-sm">Sensor × Time intensity maps</p>
+                        </div>
+                        <p class="text-gray-500 text-xs">Hourly / Daily aggregation</p>
+                    </div>
+                </a>
+
+                <!-- Correlations -->
+                <a href="visualisations/correlations.html" class="group">
+                    <div class="bg-gray-800 hover:bg-gray-700 rounded-lg p-6 h-40 flex flex-col justify-between transition transform hover:scale-105 shadow-lg border border-pink-500">
+                        <div>
+                            <h3 class="text-xl font-bold mb-2">🔗 Correlations</h3>
+                            <p class="text-gray-300 text-sm">Pearson correlation & scatter plots</p>
+                        </div>
+                        <p class="text-gray-500 text-xs">Sensor pair analysis</p>
+                    </div>
+                </a>
+
+                <!-- Comparisons -->
+                <a href="visualisations/comparisons.html" class="group">
+                    <div class="bg-gray-800 hover:bg-gray-700 rounded-lg p-6 h-40 flex flex-col justify-between transition transform hover:scale-105 shadow-lg border border-indigo-500">
+                        <div>
+                            <h3 class="text-xl font-bold mb-2">⚖️ Comparisons</h3>
+                            <p class="text-gray-300 text-sm">Side-by-side sensor analysis</p>
+                        </div>
+                        <p class="text-gray-500 text-xs">Ranking, deviation</p>
+                    </div>
+                </a>
+
+                <!-- Alerts -->
+                <a href="dashboards/alerts.html" class="group">
+                    <div class="bg-gray-800 hover:bg-gray-700 rounded-lg p-6 h-40 flex flex-col justify-between transition transform hover:scale-105 shadow-lg border border-yellow-500">
+                        <div>
+                            <h3 class="text-xl font-bold mb-2">🚨 Alerts</h3>
+                            <p class="text-gray-300 text-sm">Active and historical alerts</p>
+                        </div>
+                        <p class="text-gray-500 text-xs">Threshold violations</p>
+                    </div>
+                </a>
+            </div>
+        </section>
+
+        <!-- API Documentation -->
+        <section class="mb-12">
+            <div class="bg-gray-800 rounded-lg p-8 border border-gray-700">
+                <h2 class="text-2xl font-semibold mb-4">🔌 API Reference</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div>
+                        <h3 class="font-semibold text-cyan-400 mb-3">Measurement Endpoints</h3>
+                        <ul class="text-sm text-gray-300 space-y-1">
+                            <li>📍 <code class="bg-gray-900 px-2 py-1 rounded">GET /api/measurements/latest</code></li>
+                            <li>📍 <code class="bg-gray-900 px-2 py-1 rounded">GET /api/measurements/paginated</code></li>
+                            <li>📍 <code class="bg-gray-900 px-2 py-1 rounded">GET /api/measurements/timeseries</code></li>
+                            <li>📍 <code class="bg-gray-900 px-2 py-1 rounded">GET /api/measurements/compare</code></li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-pink-400 mb-3">Statistics Endpoints</h3>
+                        <ul class="text-sm text-gray-300 space-y-1">
+                            <li>📍 <code class="bg-gray-900 px-2 py-1 rounded">GET /api/statistics/overview</code></li>
+                            <li>📍 <code class="bg-gray-900 px-2 py-1 rounded">GET /api/statistics/distribution</code></li>
+                            <li>📍 <code class="bg-gray-900 px-2 py-1 rounded">GET /api/statistics/correlation</code></li>
+                            <li>📍 <code class="bg-gray-900 px-2 py-1 rounded">GET /api/statistics/anomalies</code></li>
+                        </ul>
+                    </div>
+                </div>
+                <p class="text-sm text-gray-400 mt-6">API running at: <code class="bg-gray-900 px-2 py-1 rounded">http://127.0.0.1:8000</code></p>
+            </div>
+        </section>
+
+        <!-- Features Matrix -->
+        <section>
+            <h2 class="text-2xl font-semibold mb-6">✨ Features</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div class="bg-gray-800 p-4 rounded-lg border-l-4 border-blue-500">
+                    <p class="font-semibold text-blue-400">✓ Real-time Data</p>
+                    <p class="text-sm text-gray-400">Live sensor readings with auto-refresh</p>
+                </div>
+                <div class="bg-gray-800 p-4 rounded-lg border-l-4 border-green-500">
+                    <p class="font-semibold text-green-400">✓ Multi-Sensor</p>
+                    <p class="text-sm text-gray-400">Compare and correlate multiple sensors</p>
+                </div>
+                <div class="bg-gray-800 p-4 rounded-lg border-l-4 border-purple-500">
+                    <p class="font-semibold text-purple-400">✓ Advanced Analytics</p>
+                    <p class="text-sm text-gray-400">Distributions, correlations, anomalies</p>
+                </div>
+                <div class="bg-gray-800 p-4 rounded-lg border-l-4 border-orange-500">
+                    <p class="font-semibold text-orange-400">✓ Flexible Queries</p>
+                    <p class="text-sm text-gray-400">Filter by type, date range, sensors</p>
+                </div>
+                <div class="bg-gray-800 p-4 rounded-lg border-l-4 border-pink-500">
+                    <p class="font-semibold text-pink-400">✓ Rich Visualizations</p>
+                    <p class="text-sm text-gray-400">Charts, heatmaps, scatter plots</p>
+                </div>
+                <div class="bg-gray-800 p-4 rounded-lg border-l-4 border-cyan-500">
+                    <p class="font-semibold text-cyan-400">✓ Data Export</p>
+                    <p class="text-sm text-gray-400">Download data as CSV for analysis</p>
+                </div>
+            </div>
         </section>
     </main>
 
-    <!-- FOOTER -->
-    <footer class="text-center text-sm text-gray-500 py-4">
-        © 2026 — Projet Visualisation Capteurs
+    <footer class="bg-gray-800 border-t border-gray-700 mt-16 py-8">
+        <div class="container mx-auto px-4 text-center text-gray-400">
+            <p>&copy; 2026 Sensor Visualization System. All rights reserved.</p>
+            <p class="text-sm mt-2">
+                <a href="https://fastapi.tiangolo.com/" class="text-blue-400 hover:underline">FastAPI</a> •
+                <a href="https://www.chartjs.org/" class="text-blue-400 hover:underline">Chart.js</a> •
+                <a href="https://tailwindcss.com/" class="text-blue-400 hover:underline">Tailwind CSS</a>
+            </p>
+        </div>
     </footer>
 
-</body>
+    <script>
+        const API_URL = 'http://127.0.0.1:8000/api';
 
+        async function loadStatus() {
+            try {
+                // Check API
+                const healthRes = await fetch(`http://127.0.0.1:8000/health`);
+                if (healthRes.ok) {
+                    document.getElementById('api-status').textContent = '✅ Online';
+                    document.getElementById('api-status').parentElement.className = 'bg-gradient-to-br from-green-600 to-green-700 rounded-lg p-6 text-center';
+                }
+
+                // Get sensor count
+                const sensorsRes = await fetch(`${API_URL}/sensors`);
+                const sensors = await sensorsRes.json();
+                document.getElementById('sensor-count').textContent = sensors.length;
+
+                // Get measurement types
+                const latestRes = await fetch(`${API_URL}/measurements/latest`);
+                const latest = await latestRes.json();
+                document.getElementById('type-count').textContent = Object.keys(latest).length;
+
+                // Get active alerts
+                const alertsRes = await fetch(`${API_URL}/alerts/active`);
+                const alerts = await alertsRes.json();
+                document.getElementById('alert-count').textContent = alerts.length || 0;
+            } catch (error) {
+                document.getElementById('api-status').textContent = '⚠️ Offline';
+                console.error('Error loading status:', error);
+            }
+        }
+
+        // Load status on page load
+        loadStatus();
+
+        // Refresh status every 30 seconds
+        setInterval(loadStatus, 30000);
+    </script>
+</body>
 </html>

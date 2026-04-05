@@ -1,0 +1,9 @@
+id,Code,Description
+1,RAW,Raw instantaneous value
+2,MIN,Minimum value in period
+3,MAX,Maximum value in period
+4,AVG,Average value in period
+5,MEDIAN,Median value in period
+6,SUM,Sum of values in period
+7,COUNT,Count of values in period
+8,STDDEV,Standard deviation in period
